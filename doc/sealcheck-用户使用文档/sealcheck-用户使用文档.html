@@ -1,0 +1,97 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sealcheck 用户使用文档</title>
+<style>
+:root{--primary:#409eff;--success:#67c23a;--warning:#e6a23c;--text:#303133;--regular:#606266;--secondary:#909399;--border:#dcdfe6;--blue:#ecf5ff;--bg:#f2f6fc}*{box-sizing:border-box}body{margin:0;font-family:"Microsoft YaHei","PingFang SC","Helvetica Neue",Arial,sans-serif;color:var(--text);background:var(--bg);letter-spacing:0}.shell{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.sidebar{position:sticky;top:0;height:100vh;background:#fff;border-right:1px solid #e4e7ed;padding:24px 18px}.brand{display:flex;gap:10px;align-items:center;border-bottom:1px solid #ebeef5;padding-bottom:18px;margin-bottom:18px}.mark{width:34px;height:34px;display:grid;place-items:center;background:var(--primary);color:#fff;border-radius:4px;font-weight:700}.brand strong{display:block;font-size:18px}.brand span{color:var(--secondary);font-size:12px}.nav-title{margin:18px 6px 8px;color:var(--secondary);font-size:12px}.nav a{display:block;padding:9px 10px;border-radius:4px;color:var(--regular);text-decoration:none;font-size:14px}.nav a:hover{background:var(--blue);color:var(--primary)}main{padding:32px 36px 64px;min-width:0}.hero{background:#1f2937;color:#fff;border-radius:8px;padding:28px 32px;margin-bottom:22px}.hero h1{margin:0 0 10px;font-size:30px;line-height:1.25}.hero p{margin:0;color:#e5e7eb;line-height:1.8;max-width:920px}.tags{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.tag{display:inline-flex;align-items:center;min-height:28px;border-radius:4px;padding:0 10px;font-size:13px;border:1px solid}.tag.primary{color:#337ecc;background:#ecf5ff;border-color:#d9ecff}.tag.success{color:#529b2e;background:#f0f9eb;border-color:#e1f3d8}.tag.warning{color:#b88230;background:#fdf6ec;border-color:#faecd8}.tag.info{color:#73767a;background:#f4f4f5;border-color:#e9e9eb}.section{background:#fff;border:1px solid #e4e7ed;border-radius:8px;padding:24px;margin:22px 0}.section h2{margin:0 0 12px;font-size:22px}.section h3{margin:18px 0 8px;font-size:16px}.section p{margin:8px 0 0;color:var(--regular);line-height:1.8}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.metric{padding:16px;border:1px solid #ebeef5;border-radius:8px;background:#fff}.metric strong{display:block;margin-bottom:8px}.metric span{color:var(--regular);line-height:1.7;font-size:14px}code{padding:2px 6px;color:#1f4e79;background:#eef5ff;border:1px solid #d9ecff;border-radius:4px;font-family:Consolas,"Courier New",monospace;font-size:.94em}.code{overflow-x:auto;padding:14px;background:#f8fafc;border:1px solid #ebeef5;border-radius:4px;font-family:Consolas,"Courier New",monospace;font-size:13px;line-height:1.65;white-space:pre}.table{width:100%;border-collapse:collapse;margin-top:14px;border:1px solid #e4e7ed;border-radius:4px;overflow:hidden}.table th,.table td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid #ebeef5;color:var(--regular);line-height:1.7}.table th{background:#f5f7fa;color:var(--text);font-weight:600;white-space:nowrap}.table tr:last-child td{border-bottom:0}.hint{padding:12px 14px;margin-top:14px;color:#337ecc;background:#ecf5ff;border:1px solid #d9ecff;border-radius:4px;line-height:1.75}.footer{color:var(--secondary);font-size:13px;margin-top:24px}@media(max-width:980px){.shell{grid-template-columns:1fr}.sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid #e4e7ed}.grid{grid-template-columns:1fr}main{padding:22px 16px 44px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="mark">S</div><div><strong>sealcheck</strong><span>PDF 签章存在性检测</span></div></div>
+    <nav class="nav">
+      <div class="nav-title">使用说明</div>
+      <a href="#quick">快速说明</a>
+      <a href="#commands">命令格式</a>
+      <a href="#json">返回字段</a>
+      <a href="#cases">返回示例</a>
+      <a href="#errors">错误说明</a>
+    </nav>
+  </aside>
+  <main>
+    <header class="hero">
+      <h1>sealcheck Windows 命令行工具用户使用文档</h1>
+      <p>sealcheck.exe 是独立 CLI，只用于快速判断 PDF 中是否存在签章。它不和 scanspy.exe 打包在一起，也不做证书验签、不判断文件是否被篡改、不返回签章页码明细。</p>
+      <div class="tags"><span class="tag primary">独立 EXE</span><span class="tag success">支持多个 PDF</span><span class="tag warning">支持 PDF 直链 URL</span><span class="tag info">Java JSON 友好</span></div>
+    </header>
+
+    <section id="quick" class="section">
+      <h2>快速说明</h2>
+      <div class="grid">
+        <div class="metric"><strong>输入</strong><span>一个或多个本地 PDF 路径，或者一个或多个以 <code>.pdf</code> 结尾的 HTTP/HTTPS 直链。</span></div>
+        <div class="metric"><strong>输出</strong><span>标准输出打印一行 JSON，外层固定为 <code>code/success/data/msg/errorCode</code>。</span></div>
+        <div class="metric"><strong>判断规则</strong><span>只要 PDF 内存在至少 1 个签章字段、签章控件或签名对象，就返回 <code>hasSignature=true</code>。</span></div>
+      </div>
+      <div class="hint">本工具适合做“有没有签章”的快速检查。需要验签、签名有效性、完整性或签章明细时，请使用 signspy。</div>
+    </section>
+
+    <section id="commands" class="section">
+      <h2>命令格式</h2>
+      <p>推荐在 PowerShell 中使用完整路径调用 exe。PDF 路径外层加英文双引号，避免中文、空格或括号导致命令解析错误。</p>
+      <div class="code">C:\tools\sealcheck\sealcheck.exe "C:\Users\xxx\Desktop\a.pdf"
+C:\tools\sealcheck\sealcheck.exe "C:\Users\xxx\Desktop\a.pdf" "C:\Users\xxx\Desktop\b.pdf"
+C:\tools\sealcheck\sealcheck.exe "https://example.com/a.pdf"</div>
+    </section>
+
+    <section id="json" class="section">
+      <h2>返回字段</h2>
+      <table class="table">
+        <thead><tr><th>字段</th><th>位置</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>code</code></td><td>外层 / data item</td><td>HTTP 风格状态码。成功通常是 200；参数错误或处理失败通常是 400。</td></tr>
+          <tr><td><code>success</code></td><td>外层 / data item</td><td>是否成功。多个 PDF 中有任意一个失败时，外层会返回失败或部分失败。</td></tr>
+          <tr><td><code>data</code></td><td>外层</td><td>数组，每个输入对应一个检测结果。</td></tr>
+          <tr><td><code>source</code></td><td>data item</td><td>原始输入，本地路径或 URL。</td></tr>
+          <tr><td><code>fileName</code></td><td>data item</td><td>文件名，例如 a.pdf。</td></tr>
+          <tr><td><code>fileSize</code></td><td>data item</td><td>文件大小，单位 byte。URL 输入会返回下载后的文件大小。</td></tr>
+          <tr><td><code>suffix</code></td><td>data item</td><td>文件后缀，当前要求为 PDF。</td></tr>
+          <tr><td><code>hasSignature</code></td><td>data item</td><td>核心字段。true 表示检测到至少 1 个签章标记；false 表示没有检测到签章标记。</td></tr>
+          <tr><td><code>sourceType</code></td><td>data item</td><td>输入来源：FILE、URL 或 UNKNOWN。</td></tr>
+          <tr><td><code>msg</code></td><td>外层</td><td>中文提示信息。</td></tr>
+          <tr><td><code>errorCode</code></td><td>外层</td><td>错误码。成功时为空字符串。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="cases" class="section">
+      <h2>返回示例</h2>
+      <h3>检测到签章</h3>
+      <div class="code">{"code":200,"success":true,"data":[{"code":200,"success":true,"source":"C:\\Users\\xxx\\Desktop\\a.pdf","fileName":"a.pdf","fileSize":123456,"suffix":"PDF","hasSignature":true,"sourceType":"FILE"}],"msg":"操作成功","errorCode":""}</div>
+      <h3>没有检测到签章</h3>
+      <div class="code">{"code":200,"success":true,"data":[{"code":200,"success":true,"source":"C:\\Users\\xxx\\Desktop\\b.pdf","fileName":"b.pdf","fileSize":123456,"suffix":"PDF","hasSignature":false,"sourceType":"FILE"}],"msg":"操作成功","errorCode":""}</div>
+    </section>
+
+    <section id="errors" class="section">
+      <h2>错误说明</h2>
+      <table class="table">
+        <thead><tr><th>错误码</th><th>含义</th><th>常见原因</th></tr></thead>
+        <tbody>
+          <tr><td><code>INVALID_ARGUMENT</code></td><td>参数错误</td><td>未传入参数，或输入不是 .pdf 文件 / .pdf 直链。</td></tr>
+          <tr><td><code>PDF_NOT_FOUND</code></td><td>文件不存在</td><td>本地 PDF 路径不存在。</td></tr>
+          <tr><td><code>PDF_NOT_FILE</code></td><td>不是文件</td><td>传入的是目录或非普通文件。</td></tr>
+          <tr><td><code>PDF_DOWNLOAD_ERROR</code></td><td>下载失败</td><td>URL 网络不可达、超时或状态码异常。</td></tr>
+          <tr><td><code>PDF_URL_NOT_PDF</code></td><td>URL 不是 PDF</td><td>URL 后缀不是 .pdf，或响应内容不是 PDF。</td></tr>
+          <tr><td><code>PDF_PARSE_ERROR</code></td><td>PDF 解析失败</td><td>PDF 损坏、加密不可读或底层库无法解析。</td></tr>
+          <tr><td><code>PARTIAL_FAILURE</code></td><td>部分失败</td><td>一次传入多个 PDF，其中至少一个处理失败。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p class="footer">交付目录：C:\Users\zhongerbing\Desktop\sealcheck-windows-x64</p>
+  </main>
+</div>
+</body>
+</html>
