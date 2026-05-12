@@ -1,0 +1,31 @@
+[project]
+name = "scanspy"
+version = "0.1.0"
+description = "Detect whether a single PDF file or direct PDF URL is scanned and print Spring Boot R-style JSON."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "ocr-detection>=0.1.12",
+    "requests>=2.32.0",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+scanspy = "scanspy.cli:main"
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.20.0",
+    "pymupdf>=1.26.0",
+    "pytest>=8.3.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
