@@ -27,6 +27,7 @@ htmlcov/
 # Packaging and build output
 build/
 dist/
+dist-sealcheck/
 release/
 *.egg-info/
 .eggs/
