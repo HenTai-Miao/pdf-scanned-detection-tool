@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Iterable, TextIO
 from urllib.parse import unquote, urlparse
 
-from ocr_detection import OCRStatus, detect_ocr
 import requests
 
 from scanspy.enums import DocumentType, ErrorCode, SourceType
+from scanspy.pdf_classifier import classify_pdf
 
 
 HTTP_TIMEOUT_SECONDS = 20
@@ -143,56 +143,22 @@ def _scan_file(path: Path, source_type: SourceType) -> dict[str, object]:
         raise ScanSpyError("PDF路径不是文件", ErrorCode.PDF_NOT_FILE, source_type)
 
     try:
-        ocr_detection_result = detect_ocr(
-            path,
-            parallel=False,
-            include_images=False,
-            accuracy_mode=False,
-            metadata_only=False,
-        )
+        classification = classify_pdf(path)
     except ScanSpyError:
         raise
     except Exception as exc:
         raise ScanSpyError("PDF解析失败", ErrorCode.PDF_PARSE_ERROR, source_type) from exc
 
-    pages_needing_ocr = {
-        int(page_number)
-        for page_number in ocr_detection_result.get("pages", [])
-    }
-    ocr_status = OCRStatus(str(ocr_detection_result.get("status")))
-
-    if ocr_status == OCRStatus.TRUE:
-        document_type = DocumentType.SCANNED
-        scanned = True
-        page_count = len(pages_needing_ocr)
-        scanned_pages = len(pages_needing_ocr)
-        text_pages = 0
-    elif ocr_status == OCRStatus.FALSE:
-        document_type = DocumentType.STANDARD
-        scanned = False
-        page_count = 0
-        scanned_pages = 0
-        text_pages = 0
-    elif ocr_status == OCRStatus.PARTIAL:
-        document_type = DocumentType.MIXED_SCANNED
-        scanned = True
-        page_count = 0
-        scanned_pages = len(pages_needing_ocr)
-        text_pages = 0
-    else:
-        document_type = DocumentType.STANDARD
-        scanned = False
-        page_count = 0
-        scanned_pages = 0
-        text_pages = 0
+    document_type = classification.document_type
+    scanned = document_type in {DocumentType.SCANNED, DocumentType.MIXED_SCANNED}
 
     return {
         "scanned": scanned,
         "type": document_type.value,
         "confidence": 0.0,
-        "pageCount": page_count,
-        "scannedPages": scanned_pages,
-        "textPages": text_pages,
+        "pageCount": classification.page_count,
+        "scannedPages": classification.scanned_pages,
+        "textPages": classification.text_pages,
         "sourceType": source_type.value,
     }
 

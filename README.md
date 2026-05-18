@@ -45,15 +45,33 @@ For HTTP/HTTPS inputs, the PDF is downloaded to the system temporary directory (
 
 ## Detection Engine
 
-PDF scan detection uses only the public `ocr-detection.detect_ocr()` API on Python 3.13.13. The project maps the library result directly into document types:
+PDF scan detection uses a PyMuPDF-based structural classifier. It inspects page
+text objects, drawing objects, and image rectangles, then classifies the document
+from page-level structure:
 
-- `status=true` -> `SCANNED`
-- `status=partial` -> `MIXED_SCANNED`
-- `status=false` -> `STANDARD`
+- Pages with text, tables, small logos, stamps, or ordinary blank content are
+  standard pages.
+- Pages with an image covering the main page area are scanned pages, even if
+  they also have an OCR text layer.
+- Pages with no extractable text and vector drawings covering the main page
+  area are scanned pages.
+- If a scanned page also has extractable text, the document returns
+  `MIXED_SCANNED` because the page contains both scanned structure and text
+  structure.
+- PDFs with only standard pages return `STANDARD`.
+- PDFs with only scanned pages and no extractable text return `SCANNED`.
+- PDFs with any scanned pages plus extractable text return `MIXED_SCANNED`.
 
-The public API does not expose an `EMPTY` status. Blank PDFs follow the library result and are returned as `SCANNED` because `detect_ocr()` returns `status=true` for blank pages.
+Blank pages do not affect the document type. A fully blank PDF returns
+`STANDARD`.
 
-`scannedPages` comes from the page list returned by `detect_ocr()`. The public API does not return total page count, text page count, or confidence, so this project no longer infers those values from PDF internals. `pageCount` is only filled for `SCANNED` results where `status=true` means every listed page needs OCR; otherwise it is `0`. `textPages` is always `0`, and `confidence` is always `0.0`.
+`pageCount` is the real PDF page count. `scannedPages` is the number of pages
+whose main content is a full-page or near-full-page image or vector drawing.
+The classifier treats main-content coverage as roughly 75% page area, or 85%
+page width and height near the page edges, so scanned pages with normal margins
+are still recognized. `textPages` is the number of pages with extractable text.
+`confidence` remains `0.0` because the classifier is rule-based and does not
+generate a statistical confidence score.
 
 ## Result Data
 
@@ -71,9 +89,9 @@ Successful and failed calls both return `data` as a list so Java can deserialize
     "scanned": false,
     "type": "STANDARD",
     "confidence": 0.0,
-    "pageCount": 0,
+    "pageCount": 1,
     "scannedPages": 0,
-    "textPages": 0,
+    "textPages": 1,
     "sourceType": "FILE"
   }
 ]

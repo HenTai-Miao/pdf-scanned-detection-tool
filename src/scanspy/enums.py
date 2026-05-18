@@ -39,15 +39,15 @@ class ErrorCode(StringEnum):
 
 # 中文说明：
 # DocumentType 文档类型：
-# - STANDARD：标准 PDF，可提取文本，非扫描件
-# - SCANNED：ocr-detection 公开 API 返回 status=true，全部页需要 OCR
-# - MIXED_SCANNED：ocr-detection 公开 API 返回 status=partial，部分页需要 OCR
-# - EMPTY：保留兼容；严格公开 API 模式不会返回该类型，空白 PDF 会跟随库返回 SCANNED
+# - STANDARD：标准 PDF，页面主要由文本、表格、小图片或普通空白内容组成
+# - SCANNED：扫描 PDF，非空白页面主体均为整页图片或整页矢量图，且没有可提取文字
+# - MIXED_SCANNED：混合 PDF，包含扫描页且存在可提取文字
+# - EMPTY：保留兼容；当前三分类检测不会返回该类型
 # - UNKNOWN：未知类型，通常用于解析失败或输入错误
 #
 # PageType 页面类型：
 # - TEXT_PAGE：文本页，可提取文本占主导
-# - SCANNED_PAGE：扫描页，图片覆盖页面主体
+# - SCANNED_PAGE：扫描页，整页图片或无文字整页矢量图覆盖页面主体
 # - UNKNOWN_PAGE：未知页面，文本和图片特征都不明显
 #
 # SourceType 输入来源：

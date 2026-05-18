@@ -8,10 +8,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import fitz
-from ocr_detection import detect_ocr
+import pytest
 
 from scanspy.cli import main
 from scanspy.enums import DocumentType, ErrorCode, PageType, SourceType
+from scanspy.pdf_classifier import classify_pdf
+import scanspy.pdf_classifier as pdf_classifier
 
 
 def write_text_pdf(path: Path, pages: int = 1) -> None:
@@ -59,6 +61,86 @@ def write_mixed_pdf(path: Path) -> None:
     doc.close()
 
 
+def write_chinese_table_pdf(path: Path) -> None:
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    for row in range(8):
+        y = 96 + row * 42
+        page.draw_line((72, y), (520, y), color=(0, 0, 0), width=0.6)
+    for col in range(5):
+        x = 72 + col * 112
+        page.draw_line((x, 96), (x, 390), color=(0, 0, 0), width=0.6)
+    labels = [
+        "商务标书范本",
+        "投标函附录",
+        "工程名称：园林绿化工程",
+        "报价总金额：肆佰壹拾玖万陆仟肆佰元整",
+        "投标人：北京公司",
+    ]
+    for index, label in enumerate(labels):
+        page.insert_text((84, 124 + index * 42), label, fontsize=12, fontname="china-s")
+    doc.save(path)
+    doc.close()
+
+
+def write_text_with_small_image_pdf(path: Path) -> None:
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_text((72, 96), "This page has normal text and a small logo. " * 5, fontsize=12)
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 80, 80), False)
+    pix.clear_with(120)
+    page.insert_image(fitz.Rect(440, 72, 520, 152), stream=pix.tobytes("png"))
+    doc.save(path)
+    doc.close()
+
+
+def write_text_with_large_partial_image_pdf(path: Path) -> None:
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_text((72, 96), "This page has text and a large but partial image. " * 5, fontsize=12)
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 380, 420), False)
+    pix.clear_with(160)
+    page.insert_image(fitz.Rect(108, 220, 488, 640), stream=pix.tobytes("png"))
+    doc.save(path)
+    doc.close()
+
+
+def write_text_with_multiple_partial_images_pdf(path: Path) -> None:
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_text(
+        (72, 96),
+        "This page embeds several certificates, but none is a page scan. " * 4,
+        fontsize=12,
+    )
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 280, 420), False)
+    pix.clear_with(170)
+    page.insert_image(fitz.Rect(60, 180, 320, 560), stream=pix.tobytes("png"))
+    page.insert_image(fitz.Rect(335, 180, 595, 560), stream=pix.tobytes("png"))
+    doc.save(path)
+    doc.close()
+
+
+def write_full_page_vector_page(page: fitz.Page) -> None:
+    for index in range(28):
+        y = 36 + index * 28
+        page.draw_rect(
+            fitz.Rect(36, y, 559, y + 14),
+            color=(0, 0, 0),
+            fill=(0, 0, 0),
+            width=0,
+        )
+
+
+def write_vector_pdf(path: Path, pages: int = 1) -> None:
+    doc = fitz.open()
+    for _ in range(pages):
+        page = doc.new_page(width=595, height=842)
+        write_full_page_vector_page(page)
+    doc.save(path)
+    doc.close()
+
+
 def write_scanned_with_blank_pdf(path: Path) -> None:
     doc = fitz.open()
     scanned_page = doc.new_page(width=595, height=842)
@@ -102,9 +184,9 @@ def test_standard_pdf_returns_r_wrapped_standard_result(tmp_path: Path) -> None:
     assert result["suffix"] == "PDF"
     assert result["scanned"] is False
     assert result["type"] == "STANDARD"
-    assert result["pageCount"] == 0
+    assert result["pageCount"] == 2
     assert result["scannedPages"] == 0
-    assert result["textPages"] == 0
+    assert result["textPages"] == 2
     assert result["confidence"] == 0.0
     assert result["sourceType"] == "FILE"
 
@@ -125,25 +207,19 @@ def test_scanned_pdf_returns_scanned_true(tmp_path: Path) -> None:
     assert result["confidence"] == 0.0
 
 
-def test_searchable_image_pdf_follows_ocr_detection_public_status(tmp_path: Path) -> None:
+def test_searchable_image_pdf_with_full_page_image_is_mixed(tmp_path: Path) -> None:
     pdf = tmp_path / "ocr-scanned.pdf"
     write_scanned_pdf(pdf, pages=1, ocr_text=True)
 
     exit_code, payload = run_cli(str(pdf))
 
-    library_result = detect_ocr(
-        pdf,
-        parallel=False,
-        include_images=False,
-        accuracy_mode=False,
-        metadata_only=False,
-    )
     assert exit_code == 0
-    assert library_result["status"] == "false"
     result = payload["data"][0]
-    assert result["scanned"] is False
-    assert result["type"] == "STANDARD"
-    assert result["scannedPages"] == 0
+    assert result["scanned"] is True
+    assert result["type"] == "MIXED_SCANNED"
+    assert result["pageCount"] == 1
+    assert result["scannedPages"] == 1
+    assert result["textPages"] == 1
 
 
 def test_mixed_pdf_returns_mixed_scanned(tmp_path: Path) -> None:
@@ -156,12 +232,12 @@ def test_mixed_pdf_returns_mixed_scanned(tmp_path: Path) -> None:
     result = payload["data"][0]
     assert result["scanned"] is True
     assert result["type"] == "MIXED_SCANNED"
-    assert result["pageCount"] == 0
+    assert result["pageCount"] == 2
     assert result["scannedPages"] == 1
-    assert result["textPages"] == 0
+    assert result["textPages"] == 1
 
 
-def test_scanned_pdf_with_blank_pages_uses_ocr_detection_status(tmp_path: Path) -> None:
+def test_scanned_pdf_with_blank_pages_ignores_blank_for_document_type(tmp_path: Path) -> None:
     pdf = tmp_path / "scanned-with-blank.pdf"
     write_scanned_with_blank_pdf(pdf)
 
@@ -172,31 +248,259 @@ def test_scanned_pdf_with_blank_pages_uses_ocr_detection_status(tmp_path: Path) 
     assert result["scanned"] is True
     assert result["type"] == "SCANNED"
     assert result["pageCount"] == 2
-    assert result["scannedPages"] == 2
+    assert result["scannedPages"] == 1
     assert result["textPages"] == 0
 
 
-def test_blank_pdf_follows_ocr_detection_public_status(tmp_path: Path) -> None:
+def test_blank_pdf_returns_standard_with_real_page_count(tmp_path: Path) -> None:
     pdf = tmp_path / "blank.pdf"
     write_blank_pdf(pdf)
 
     exit_code, payload = run_cli(str(pdf))
 
-    library_result = detect_ocr(
-        pdf,
-        parallel=False,
-        include_images=False,
-        accuracy_mode=False,
-        metadata_only=False,
-    )
     assert exit_code == 0
-    assert library_result == {"status": "true", "pages": [1]}
+    result = payload["data"][0]
+    assert result["scanned"] is False
+    assert result["type"] == DocumentType.STANDARD.value
+    assert result["pageCount"] == 1
+    assert result["scannedPages"] == 0
+    assert result["textPages"] == 0
+
+
+def test_chinese_table_pdf_returns_standard(tmp_path: Path) -> None:
+    pdf = tmp_path / "chinese-table.pdf"
+    write_chinese_table_pdf(pdf)
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is False
+    assert result["type"] == DocumentType.STANDARD.value
+    assert result["pageCount"] == 1
+    assert result["scannedPages"] == 0
+    assert result["textPages"] == 1
+
+
+def test_text_page_with_small_image_returns_standard(tmp_path: Path) -> None:
+    pdf = tmp_path / "small-image.pdf"
+    write_text_with_small_image_pdf(pdf)
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is False
+    assert result["type"] == DocumentType.STANDARD.value
+    assert result["pageCount"] == 1
+    assert result["scannedPages"] == 0
+    assert result["textPages"] == 1
+
+
+def test_text_page_with_large_partial_image_returns_standard(tmp_path: Path) -> None:
+    pdf = tmp_path / "large-partial-image.pdf"
+    write_text_with_large_partial_image_pdf(pdf)
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is False
+    assert result["type"] == DocumentType.STANDARD.value
+    assert result["pageCount"] == 1
+    assert result["scannedPages"] == 0
+    assert result["textPages"] == 1
+
+
+def test_text_page_with_multiple_partial_images_returns_standard(tmp_path: Path) -> None:
+    pdf = tmp_path / "multiple-partial-images.pdf"
+    write_text_with_multiple_partial_images_pdf(pdf)
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is False
+    assert result["type"] == DocumentType.STANDARD.value
+    assert result["pageCount"] == 1
+    assert result["scannedPages"] == 0
+    assert result["textPages"] == 1
+
+
+def test_text_page_with_white_vector_background_returns_standard(tmp_path: Path) -> None:
+    pdf = tmp_path / "white-background-vector.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.draw_rect(page.rect, fill=(1, 1, 1), color=None, width=0)
+    page.draw_line((72, 180), (520, 180), color=(0, 0, 0), width=0.8)
+    page.insert_text((72, 96), "This is a normal text PDF with a white background shape. " * 6, fontsize=12)
+    doc.save(pdf)
+    doc.close()
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is False
+    assert result["type"] == DocumentType.STANDARD.value
+    assert result["pageCount"] == 1
+    assert result["scannedPages"] == 0
+    assert result["textPages"] == 1
+
+
+def test_text_page_with_distributed_small_vectors_returns_standard(tmp_path: Path) -> None:
+    pdf = tmp_path / "distributed-small-vectors.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_text((72, 96), "This page has searchable text and normal vector decorations. " * 6, fontsize=12)
+    for index in range(36):
+        x = 32 + (index % 9) * 65
+        y = 52 + (index // 9) * 246
+        page.draw_rect(
+            fitz.Rect(x, y, x + 10, y + 10),
+            color=(0.8, 0, 0),
+            fill=(0.8, 0, 0),
+            width=0,
+        )
+    doc.save(pdf)
+    doc.close()
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is False
+    assert result["type"] == DocumentType.STANDARD.value
+    assert result["pageCount"] == 1
+    assert result["scannedPages"] == 0
+    assert result["textPages"] == 1
+
+
+def test_text_page_plus_ocr_scanned_page_returns_mixed(tmp_path: Path) -> None:
+    pdf = tmp_path / "mixed-ocr-scanned.pdf"
+    doc = fitz.open()
+    text_page = doc.new_page(width=595, height=842)
+    text_page.insert_text((72, 96), "This page is text based. " * 20, fontsize=12)
+    scanned_page = doc.new_page(width=595, height=842)
+    write_scanned_page(scanned_page)
+    scanned_page.insert_text((72, 96), "OCR layer over scanned image. " * 10, fontsize=12)
+    doc.save(pdf)
+    doc.close()
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is True
+    assert result["type"] == DocumentType.MIXED_SCANNED.value
+    assert result["pageCount"] == 2
+    assert result["scannedPages"] == 1
+    assert result["textPages"] == 2
+
+
+def test_full_page_vector_pdf_returns_scanned(tmp_path: Path) -> None:
+    pdf = tmp_path / "vector-scanned.pdf"
+    write_vector_pdf(pdf, pages=2)
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
     result = payload["data"][0]
     assert result["scanned"] is True
     assert result["type"] == DocumentType.SCANNED.value
+    assert result["pageCount"] == 2
+    assert result["scannedPages"] == 2
+    assert result["textPages"] == 0
+
+
+def test_text_page_plus_full_page_vector_page_returns_mixed(tmp_path: Path) -> None:
+    pdf = tmp_path / "mixed-vector.pdf"
+    doc = fitz.open()
+    text_page = doc.new_page(width=595, height=842)
+    text_page.insert_text((72, 96), "This page is text based. " * 20, fontsize=12)
+    vector_page = doc.new_page(width=595, height=842)
+    write_full_page_vector_page(vector_page)
+    doc.save(pdf)
+    doc.close()
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is True
+    assert result["type"] == DocumentType.MIXED_SCANNED.value
+    assert result["pageCount"] == 2
+    assert result["scannedPages"] == 1
+    assert result["textPages"] == 1
+
+
+def test_large_pdf_parallel_classification_matches_business_counts(tmp_path: Path) -> None:
+    pdf = tmp_path / "parallel-mixed.pdf"
+    doc = fitz.open()
+    for page_index in range(10):
+        page = doc.new_page(width=595, height=842)
+        if page_index in {3, 7}:
+            write_scanned_page(page)
+        else:
+            page.insert_text(
+                (72, 96),
+                f"Searchable standard page {page_index + 1}. " * 8,
+                fontsize=12,
+            )
+    doc.save(pdf)
+    doc.close()
+
+    result = classify_pdf(pdf, workers=2)
+
+    assert result.document_type == DocumentType.MIXED_SCANNED
+    assert result.page_count == 10
+    assert result.scanned_pages == 2
+    assert result.text_pages == 8
+
+
+def test_parallel_worker_count_uses_available_cpu_for_large_pdfs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pdf_classifier.os, "process_cpu_count", lambda: 16, raising=False)
+
+    assert pdf_classifier._resolve_worker_count(page_count=6, requested_workers=None) == 1
+    assert pdf_classifier._resolve_worker_count(page_count=50, requested_workers=None) == 16
+    assert pdf_classifier._resolve_worker_count(page_count=50, requested_workers=4) == 4
+    assert pdf_classifier._resolve_worker_count(page_count=3, requested_workers=16) == 1
+    assert pdf_classifier._resolve_worker_count(page_count=12, requested_workers=99) == 12
+
+
+def test_full_page_vector_with_text_returns_mixed(tmp_path: Path) -> None:
+    pdf = tmp_path / "ocr-vector.pdf"
+    doc = fitz.open()
+    vector_page = doc.new_page(width=595, height=842)
+    write_full_page_vector_page(vector_page)
+    vector_page.insert_text((72, 96), "Extractable text over vector page. " * 10, fontsize=12)
+    doc.save(pdf)
+    doc.close()
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is True
+    assert result["type"] == DocumentType.MIXED_SCANNED.value
     assert result["pageCount"] == 1
     assert result["scannedPages"] == 1
-    assert result["textPages"] == 0
+    assert result["textPages"] == 1
+
+
+def test_business_bid_sample_returns_standard_when_available() -> None:
+    pdf = Path(r"C:\Users\zhongerbing\Desktop\商务标书范本.pdf")
+    if not pdf.exists():
+        pytest.skip("商务标书范本.pdf is only available in the local user workspace")
+
+    exit_code, payload = run_cli(str(pdf))
+
+    assert exit_code == 0
+    result = payload["data"][0]
+    assert result["scanned"] is False
+    assert result["type"] == DocumentType.STANDARD.value
+    assert result["pageCount"] == 14
+    assert result["scannedPages"] == 0
 
 
 def test_missing_file_returns_r_wrapped_error(tmp_path: Path) -> None:
@@ -513,11 +817,14 @@ def test_enums_expose_java_style_codes() -> None:
     assert ErrorCode.PARTIAL_FAILURE.value == "PARTIAL_FAILURE"
 
 
-def test_production_detection_uses_only_ocr_detection_public_api() -> None:
+def test_production_detection_uses_structural_classifier() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     cli_source = (repo_root / "src" / "scanspy" / "cli.py").read_text(encoding="utf-8")
+    classifier_path = repo_root / "src" / "scanspy" / "pdf_classifier.py"
 
-    assert "from ocr_detection import OCRStatus, detect_ocr" in cli_source
-    assert "ocr_detection._detector" not in cli_source
-    assert "PDFAnalyzer" not in cli_source
-    assert "OCRPageType" not in cli_source
+    assert "classify_pdf" in cli_source
+    assert "detect_ocr" not in cli_source
+    assert "ocr_detection" not in cli_source
+    assert classifier_path.exists()
+    classifier_source = classifier_path.read_text(encoding="utf-8")
+    assert "import fitz" in classifier_source

@@ -54,8 +54,6 @@ uv run pyinstaller `
     --distpath $DistDir `
     --workpath $BuildDir `
     --specpath $BuildDir `
-    --collect-all ocr_detection `
-    --collect-all pdfplumber `
     --collect-all fitz `
     --collect-all pymupdf `
     $EntryPoint

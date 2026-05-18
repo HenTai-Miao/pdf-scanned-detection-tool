@@ -428,10 +428,10 @@ C:\tools\scanspy\scanspy.exe "https://example.com/a.pdf"</pre>
           <tr><td><code>suffix</code></td><td>data item</td><td>文件后缀，当前要求为 <code>PDF</code>。</td></tr>
           <tr><td><code>scanned</code></td><td>data item</td><td>业务布尔值。<code>SCANNED</code> 和 <code>MIXED_SCANNED</code> 都返回 true；<code>STANDARD</code> 返回 false。</td></tr>
           <tr><td><code>type</code></td><td>data item</td><td>文档类型枚举，见下面的 DocumentType。</td></tr>
-          <tr><td><code>confidence</code></td><td>data item</td><td>置信度字段。当前严格跟随 <code>ocr-detection</code> 公开 API，该库不提供置信度，所以统一为 0.0。</td></tr>
-          <tr><td><code>pageCount</code></td><td>data item</td><td>页数。当前库在 <code>SCANNED</code> 场景能返回页码列表；<code>STANDARD</code> 和 <code>MIXED_SCANNED</code> 不一定能给出完整页数。</td></tr>
-          <tr><td><code>scannedPages</code></td><td>data item</td><td>判定为需要 OCR 的页数或库返回的相关页码数量。</td></tr>
-          <tr><td><code>textPages</code></td><td>data item</td><td>当前严格公开 API 模式下不做额外手写页级检测，所以一般为 0。</td></tr>
+          <tr><td><code>confidence</code></td><td>data item</td><td>置信度字段。当前结构规则检测不生成统计置信度，所以统一为 0.0。</td></tr>
+          <tr><td><code>pageCount</code></td><td>data item</td><td>PDF 真实总页数。</td></tr>
+          <tr><td><code>scannedPages</code></td><td>data item</td><td>页面主体为整页或近整页图片 / 矢量图的页数。</td></tr>
+          <tr><td><code>textPages</code></td><td>data item</td><td>存在可提取文字的页数。</td></tr>
           <tr><td><code>sourceType</code></td><td>data item</td><td>输入来源枚举，见 SourceType。</td></tr>
           <tr><td><code>msg</code></td><td>外层</td><td>中文提示信息。</td></tr>
           <tr><td><code>errorCode</code></td><td>外层</td><td>错误码。成功时为空字符串。</td></tr>
@@ -443,22 +443,10 @@ C:\tools\scanspy\scanspy.exe "https://example.com/a.pdf"</pre>
       <div class="section-header">
         <div>
           <h2>枚举说明</h2>
-          <p>下面把项目里的枚举逐个列出来，Java 侧可以按同名枚举建模。当前检测逻辑严格使用 <code>ocr-detection.detect_ocr()</code> 公开 API，不再叠加自定义 PDF 判断规则。</p>
+          <p>下面把项目里的枚举逐个列出来，Java 侧可以按同名枚举建模。当前检测逻辑使用 PDF 页面结构规则，识别文字、整页图片和整页矢量图。</p>
         </div>
         <span class="el-tag el-tag--success">Java DTO 可对齐</span>
       </div>
-
-      <h3>OCRStatus：ocr-detection 原始状态</h3>
-      <table class="el-table">
-        <thead>
-          <tr><th>库枚举值</th><th>原始值</th><th>项目映射结果</th><th>说明</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>OCRStatus.FALSE</code></td><td><code>false</code></td><td><code>STANDARD</code></td><td>不需要 OCR，项目按标准件处理，<code>scanned=false</code>。</td></tr>
-          <tr><td><code>OCRStatus.TRUE</code></td><td><code>true</code></td><td><code>SCANNED</code></td><td>需要 OCR，项目按扫描件处理，<code>scanned=true</code>。</td></tr>
-          <tr><td><code>OCRStatus.PARTIAL</code></td><td><code>partial</code></td><td><code>MIXED_SCANNED</code></td><td>部分页面需要 OCR，项目按混合扫描件处理，<code>scanned=true</code>。</td></tr>
-        </tbody>
-      </table>
 
       <h3>DocumentType：文档类型</h3>
       <table class="el-table">
@@ -466,10 +454,10 @@ C:\tools\scanspy\scanspy.exe "https://example.com/a.pdf"</pre>
           <tr><th>枚举值</th><th>中文含义</th><th>业务解释</th><th>scanned</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>STANDARD</code></td><td>标准件 / 文本型 PDF</td><td><code>ocr-detection</code> 返回 <code>false</code>，通常表示不需要 OCR，可按普通 PDF 处理。</td><td><span class="el-tag el-tag--info">false</span></td></tr>
-          <tr><td><code>SCANNED</code></td><td>扫描件 / 纯图像 PDF</td><td><code>ocr-detection</code> 返回 <code>true</code>，表示页面需要 OCR。项目会把它作为扫描件处理。</td><td><span class="el-tag el-tag--danger">true</span></td></tr>
-          <tr><td><code>MIXED_SCANNED</code></td><td>混合扫描件</td><td><code>ocr-detection</code> 返回 <code>partial</code>，表示只有部分页面需要 OCR，通常是文本页和扫描页混在一起。</td><td><span class="el-tag el-tag--warning">true</span></td></tr>
-          <tr><td><code>EMPTY</code></td><td>空白 PDF</td><td>保留兼容字段。严格公开 API 模式不会主动返回该类型，因为 <code>ocr-detection</code> 不公开空白 PDF 的独立分类。</td><td><span class="el-tag el-tag--info">按库结果</span></td></tr>
+          <tr><td><code>STANDARD</code></td><td>标准件 / 文本型 PDF</td><td>没有整页或近整页图片 / 矢量图主体；空白页也按标准件处理。</td><td><span class="el-tag el-tag--info">false</span></td></tr>
+          <tr><td><code>SCANNED</code></td><td>扫描件 / 纯图像 PDF</td><td>非空白页面主体均为整页或近整页图片 / 矢量图，且没有可提取文字。</td><td><span class="el-tag el-tag--danger">true</span></td></tr>
+          <tr><td><code>MIXED_SCANNED</code></td><td>混合扫描件</td><td>存在扫描页，同时 PDF 中存在可提取文字。</td><td><span class="el-tag el-tag--warning">true</span></td></tr>
+          <tr><td><code>EMPTY</code></td><td>空白 PDF</td><td>保留兼容字段。当前三分类检测不主动返回该类型。</td><td><span class="el-tag el-tag--info">false</span></td></tr>
           <tr><td><code>UNKNOWN</code></td><td>未知类型</td><td>通常用于解析失败、参数错误、下载失败等异常结果。</td><td><span class="el-tag el-tag--info">false</span></td></tr>
         </tbody>
       </table>

@@ -5,7 +5,6 @@ description = "Detect whether a single PDF file or direct PDF URL is scanned and
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "ocr-detection>=0.1.12",
     "pyhanko>=0.35.1",
     "pymupdf>=1.27.2.3",
     "requests>=2.32.0",
