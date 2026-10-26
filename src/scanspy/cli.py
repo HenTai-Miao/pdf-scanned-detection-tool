@@ -150,7 +150,7 @@ def _scan_file(path: Path, source_type: SourceType) -> dict[str, object]:
         raise ScanSpyError("PDF解析失败", ErrorCode.PDF_PARSE_ERROR, source_type) from exc
 
     document_type = classification.document_type
-    scanned = document_type in {DocumentType.SCANNED, DocumentType.MIXED_SCANNED}
+    scanned = document_type == DocumentType.SCANNED
 
     return {
         "scanned": scanned,

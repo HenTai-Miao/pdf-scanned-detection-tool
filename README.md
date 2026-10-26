@@ -75,6 +75,12 @@ generate a statistical confidence score.
 
 ## Result Data
 
+`scanned` is a business flag: only `SCANNED` returns `true`. Both
+`STANDARD` and `MIXED_SCANNED` return `false`. Mixed PDFs, including scanned
+pages with extractable text, keep `type=MIXED_SCANNED` and their page counts
+so callers can inspect the detailed classification without treating them as
+pure scanned documents.
+
 Successful and failed calls both return `data` as a list so Java can deserialize a stable `R<List<ScanDetectResult>>` DTO. Each input PDF or direct PDF URL has one result item:
 
 ```json

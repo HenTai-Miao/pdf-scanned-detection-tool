@@ -1,570 +1,97 @@
-﻿<!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>scanspy 详细使用文档</title>
-<style>
-:root {
-  --el-color-primary: #409eff;
-  --el-color-primary-light-9: #ecf5ff;
-  --el-color-success: #67c23a;
-  --el-color-warning: #e6a23c;
-  --el-color-danger: #f56c6c;
-  --el-color-info: #909399;
-  --el-text-color-primary: #303133;
-  --el-text-color-regular: #606266;
-  --el-text-color-secondary: #909399;
-  --el-border-color: #dcdfe6;
-  --el-border-color-light: #e4e7ed;
-  --el-border-color-lighter: #ebeef5;
-  --el-fill-color-light: #f5f7fa;
-  --el-bg-color: #ffffff;
-  --el-radius-base: 4px;
-}
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>scanspy 详细使用文档</title><style>body{font-family:Arial,"Microsoft YaHei",sans-serif;color:#253342;background:#f5f7fa;margin:0;line-height:1.7}section{max-width:900px;margin:28px auto;padding:40px;background:white;border:1px solid #d9e1eb}h1{font-size:28px;margin:0 0 20px}h2{color:#175da8;font-size:19px;margin-top:28px}table{border-collapse:collapse;width:100%;margin:18px 0}td,th{padding:10px 12px;border:1px solid #d9e1eb;text-align:left}th{background:#175da8;color:white}tr:nth-child(even){background:#f7f9fc}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef4fa;padding:18px;font:13px/1.6 Consolas,monospace}.small{font-size:13px}@media print{body{background:white}section{border:0;margin:0;padding:0;break-after:page}section:last-child{break-after:auto}}</style><section>
+<h1 class="h1">scanspy 详细使用文档</h1>
+<p class="small">Windows x64 命令行工具   |   更新日期 2026-09-10</p>
+<p class="body">本工具检测 PDF 的页面结构，并以 JSON 返回文档类型及业务判断标记。适用于本地文件、PDF 直链及批量调用；本工具不执行 OCR。</p>
+<h2 class="h2">本次业务规则</h2>
+<p class="body">混合扫描件 MIXED_SCANNED 的 scanned 已改为 false。只有纯扫描件 SCANNED 返回 true。type 和页数统计继续返回实际检测结果。</p>
+<table><thead><tr><th>文档类型 type</th><th>scanned</th><th>含义</th></tr></thead><tbody><tr><td>STANDARD</td><td>false</td><td>当前规则未识别到扫描页。</td></tr><tr><td>MIXED_SCANNED</td><td>false</td><td>存在扫描页，同时存在可提取文字。</td></tr><tr><td>SCANNED</td><td>true</td><td>存在扫描页，且文档中没有可提取文字。</td></tr></tbody></table>
+<h2 class="h2">运行要求和交付文件</h2>
+<p class="body">面向 Windows 10 / Windows 11 的 64 位环境。用户无需安装 Python 或项目依赖。请在 PowerShell 或 CMD 中运行；直接双击不会显示文件选择窗口。</p>
+<table><thead><tr><th>文件</th><th>用途</th></tr></thead><tbody><tr><td>scanspy.exe</td><td>实际调用的单文件命令行程序。</td></tr><tr><td>README-用户使用.txt</td><td>快速运行与替换说明。</td></tr><tr><td>scanspy-详细使用文档.pdf</td><td>字段、分类、错误处理和调用示例。</td></tr></tbody></table>
+<h2 class="h2">快速开始</h2>
+<p class="body">在 PowerShell 中运行以下命令，并将路径替换成实际位置：</p>
+<pre>&amp; "C:\tools\scanspy\scanspy.exe" "C:\input\file.pdf"</pre>
+<p class="small">判断文件类型前，先确认 code=200 且 success=true。scanned=false 本身不能代表处理成功。</p>
+</section><section>
+<h1 class="h1">运行方法</h1>
+<h2 class="h2">PowerShell</h2>
+<p class="body">EXE 和 PDF 路径均建议使用英文双引号。以引号包裹 EXE 完整路径时，前面使用调用运算符 &amp;。</p>
+<pre>&amp; "C:\tools\scanspy\scanspy.exe" "C:\input\file.pdf"
 
-* { box-sizing: border-box; }
+&amp; "C:\tools\scanspy\scanspy.exe" "https://example.com/file.pdf"
 
-html { scroll-behavior: smooth; }
-
-body {
-  margin: 0;
-  font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
-  color: var(--el-text-color-primary);
-  background: #f2f6fc;
-  letter-spacing: 0;
-}
-
-a { color: var(--el-color-primary); text-decoration: none; }
-a:hover { text-decoration: underline; }
-
-.page-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-}
-
-.sidebar {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  height: 100vh;
-  padding: 24px 18px;
-  background: #ffffff;
-  border-right: 1px solid var(--el-border-color-light);
-  overflow-y: auto;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 22px;
-  padding: 0 6px 18px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  display: inline-grid;
-  place-items: center;
-  color: #fff;
-  font-weight: 700;
-  background: var(--el-color-primary);
-  border-radius: var(--el-radius-base);
-}
-
-.brand-title { font-size: 18px; font-weight: 700; }
-.brand-subtitle { margin-top: 2px; color: var(--el-text-color-secondary); font-size: 12px; }
-
-.nav-title {
-  margin: 18px 6px 8px;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-}
-
-.nav-link {
-  display: block;
-  padding: 9px 10px;
-  color: var(--el-text-color-regular);
-  border-radius: var(--el-radius-base);
-  font-size: 14px;
-}
-
-.nav-link:hover {
-  background: var(--el-color-primary-light-9);
-  color: var(--el-color-primary);
-  text-decoration: none;
-}
-
-.content {
-  min-width: 0;
-  padding: 32px 36px 64px;
-}
-
-.hero {
-  padding: 28px 32px;
-  margin-bottom: 22px;
-  color: #ffffff;
-  background: #1f2937;
-  border-radius: 8px;
-}
-
-.hero h1 {
-  margin: 0 0 10px;
-  font-size: 30px;
-  line-height: 1.25;
-  font-weight: 700;
-}
-
-.hero p {
-  margin: 0;
-  max-width: 920px;
-  line-height: 1.8;
-  color: #e5e7eb;
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.el-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: var(--el-radius-base);
-  font-size: 13px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.el-tag--primary { color: #337ecc; background: var(--el-color-primary-light-9); border-color: #d9ecff; }
-.el-tag--success { color: #529b2e; background: #f0f9eb; border-color: #e1f3d8; }
-.el-tag--warning { color: #b88230; background: #fdf6ec; border-color: #faecd8; }
-.el-tag--danger { color: #c45656; background: #fef0f0; border-color: #fde2e2; }
-.el-tag--info { color: #73767a; background: #f4f4f5; border-color: #e9e9eb; }
-
-.section {
-  margin: 22px 0;
-  padding: 24px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.section h2 {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.35;
-}
-
-.section p {
-  margin: 8px 0 0;
-  line-height: 1.8;
-  color: var(--el-text-color-regular);
-}
-
-.hint {
-  padding: 12px 14px;
-  margin: 14px 0 0;
-  color: #337ecc;
-  background: var(--el-color-primary-light-9);
-  border: 1px solid #d9ecff;
-  border-radius: var(--el-radius-base);
-  line-height: 1.75;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.metric {
-  padding: 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.metric strong {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 16px;
-}
-
-.metric span {
-  color: var(--el-text-color-regular);
-  line-height: 1.7;
-  font-size: 14px;
-}
-
-.el-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 14px;
-  overflow: hidden;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: var(--el-radius-base);
-  background: #ffffff;
-  font-size: 14px;
-}
-
-.el-table th,
-.el-table td {
-  padding: 12px 14px;
-  text-align: left;
-  vertical-align: top;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.el-table th {
-  color: var(--el-text-color-primary);
-  background: var(--el-fill-color-light);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.el-table tr:last-child td { border-bottom: 0; }
-.el-table td { color: var(--el-text-color-regular); line-height: 1.7; }
-.el-table code { white-space: nowrap; }
-
-code {
-  padding: 2px 6px;
-  color: #1f4e79;
-  background: #eef5ff;
-  border: 1px solid #d9ecff;
-  border-radius: var(--el-radius-base);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.94em;
-}
-
-.steps {
-  display: grid;
-  gap: 18px;
-}
-
-.step {
-  padding: 20px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.step-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.step-index {
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  display: inline-grid;
-  place-items: center;
-  color: #ffffff;
-  background: var(--el-color-primary);
-  border-radius: 50%;
-  font-size: 14px;
-}
-
-.screenshot {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin-top: 14px;
-  border: 1px solid var(--el-border-color);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.json-example {
-  overflow-x: auto;
-  padding: 14px;
-  margin: 12px 0 0;
-  color: #303133;
-  background: #f8fafc;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--el-radius-base);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.footer {
-  margin-top: 24px;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-@media (max-width: 980px) {
-  .page-shell { grid-template-columns: 1fr; }
-  .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--el-border-color-light); }
-  .content { padding: 22px 16px 44px; }
-  .grid { grid-template-columns: 1fr; }
-}
-
-@media print {
-  @page { size: A4; margin: 12mm; }
-  body { background: #ffffff; }
-  .page-shell { display: block; }
-  .sidebar { display: none; }
-  .content { padding: 0; }
-  .hero,
-  .section,
-  .step {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    box-shadow: none;
-  }
-  .hero {
-    color: #ffffff;
-    background: #1f2937 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .section { margin: 12px 0; }
-  .screenshot { max-width: 100%; }
-}
-</style>
-</head>
-<body>
-<div class="page-shell">
-  <aside class="sidebar">
-    <div class="brand">
-      <span class="brand-mark">S</span>
-      <div>
-        <div class="brand-title">scanspy</div>
-        <div class="brand-subtitle">Windows EXE 使用文档</div>
-      </div>
-    </div>
-    <div class="nav-title">基础使用</div>
-    <a class="nav-link" href="#quick">快速说明</a>
-    <a class="nav-link" href="#commands">命令格式</a>
-    <a class="nav-link" href="#steps">截图步骤</a>
-    <div class="nav-title">返回值</div>
-    <a class="nav-link" href="#json">JSON 结构</a>
-    <a class="nav-link" href="#enums">枚举说明</a>
-    <a class="nav-link" href="#errors">错误码说明</a>
-  </aside>
-
-  <main class="content">
-    <header class="hero">
-      <h1>scanspy Windows 命令行工具详细使用文档</h1>
-      <p>本文档用于交付给 Windows 用户，说明如何运行 <code>scanspy.exe</code>，如何读取 JSON 返回值，以及每个枚举字段代表什么。本文档不会修改 release 目录里的 README。</p>
-      <div class="toolbar">
-        <span class="el-tag el-tag--primary">单 EXE</span>
-        <span class="el-tag el-tag--success">支持多个 PDF</span>
-        <span class="el-tag el-tag--warning">支持 PDF 直链 URL</span>
-        <span class="el-tag el-tag--info">Spring Boot 友好 JSON</span>
-      </div>
-    </header>
-
-    <section id="quick" class="section">
-      <div class="section-header">
-        <div>
-          <h2>快速说明</h2>
-          <p><code>scanspy.exe</code> 用于判断 PDF 是否需要 OCR。业务上主要读取 <code>scanned</code> 和 <code>type</code>：标准 PDF 返回 <code>STANDARD</code>，扫描 PDF 返回 <code>SCANNED</code>，部分页面需要 OCR 的 PDF 返回 <code>MIXED_SCANNED</code>。</p>
-        </div>
-        <span class="el-tag el-tag--primary">推荐先看</span>
-      </div>
-      <div class="grid">
-        <div class="metric">
-          <strong>输入</strong>
-          <span>一个或多个本地 PDF 路径，或者一个或多个以 <code>.pdf</code> 结尾的 HTTP/HTTPS 直链。</span>
-        </div>
-        <div class="metric">
-          <strong>输出</strong>
-          <span>标准输出打印一行 JSON，外层固定为 <code>code/success/data/msg/errorCode</code>。</span>
-        </div>
-        <div class="metric">
-          <strong>依赖</strong>
-          <span>用户电脑不需要安装 Python、uv 或项目依赖，只运行 <code>scanspy.exe</code>。</span>
-        </div>
-      </div>
-    </section>
-
-    <section id="commands" class="section">
-      <h2>命令格式</h2>
-      <p>推荐在 PowerShell 中使用完整路径调用 exe，PDF 路径外层加英文双引号，避免中文、空格或括号导致命令解析错误。</p>
-      <pre class="json-example">C:\tools\scanspy\scanspy.exe "C:\Users\xxx\Desktop\a.pdf"
-C:\tools\scanspy\scanspy.exe "C:\Users\xxx\Desktop\a.pdf" "C:\Users\xxx\Desktop\b.pdf"
-C:\tools\scanspy\scanspy.exe "https://example.com/a.pdf"</pre>
-      <div class="hint">URL 会先下载到系统临时目录中进行检测，检测完成后自动删除临时文件和临时目录。</div>
-    </section>
-
-    <section id="json" class="section">
-      <h2>JSON 结构</h2>
-      <p>成功和失败时 <code>data</code> 内每个结果对象保持同一套字段，方便 Java 使用统一 DTO 反序列化。</p>
-      <table class="el-table">
-        <thead>
-          <tr><th>字段</th><th>位置</th><th>说明</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>code</code></td><td>外层 / data item</td><td>HTTP 风格状态码。全部成功通常是 200；参数或 PDF 处理失败通常是 400。</td></tr>
-          <tr><td><code>success</code></td><td>外层 / data item</td><td>是否成功。多个 PDF 中有任意一个失败时，外层会体现失败或部分失败。</td></tr>
-          <tr><td><code>data</code></td><td>外层</td><td>数组，每个输入对应一个结果对象。</td></tr>
-          <tr><td><code>source</code></td><td>data item</td><td>原始输入，本地路径或 URL。</td></tr>
-          <tr><td><code>fileName</code></td><td>data item</td><td>文件名，例如 <code>a.pdf</code>。</td></tr>
-          <tr><td><code>fileSize</code></td><td>data item</td><td>文件大小，单位 byte。</td></tr>
-          <tr><td><code>suffix</code></td><td>data item</td><td>文件后缀，当前要求为 <code>PDF</code>。</td></tr>
-          <tr><td><code>scanned</code></td><td>data item</td><td>业务布尔值。<code>SCANNED</code> 和 <code>MIXED_SCANNED</code> 都返回 true；<code>STANDARD</code> 返回 false。</td></tr>
-          <tr><td><code>type</code></td><td>data item</td><td>文档类型枚举，见下面的 DocumentType。</td></tr>
-          <tr><td><code>confidence</code></td><td>data item</td><td>置信度字段。当前结构规则检测不生成统计置信度，所以统一为 0.0。</td></tr>
-          <tr><td><code>pageCount</code></td><td>data item</td><td>PDF 真实总页数。</td></tr>
-          <tr><td><code>scannedPages</code></td><td>data item</td><td>页面主体为整页或近整页图片 / 矢量图的页数。</td></tr>
-          <tr><td><code>textPages</code></td><td>data item</td><td>存在可提取文字的页数。</td></tr>
-          <tr><td><code>sourceType</code></td><td>data item</td><td>输入来源枚举，见 SourceType。</td></tr>
-          <tr><td><code>msg</code></td><td>外层</td><td>中文提示信息。</td></tr>
-          <tr><td><code>errorCode</code></td><td>外层</td><td>错误码。成功时为空字符串。</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section id="enums" class="section">
-      <div class="section-header">
-        <div>
-          <h2>枚举说明</h2>
-          <p>下面把项目里的枚举逐个列出来，Java 侧可以按同名枚举建模。当前检测逻辑使用 PDF 页面结构规则，识别文字、整页图片和整页矢量图。</p>
-        </div>
-        <span class="el-tag el-tag--success">Java DTO 可对齐</span>
-      </div>
-
-      <h3>DocumentType：文档类型</h3>
-      <table class="el-table">
-        <thead>
-          <tr><th>枚举值</th><th>中文含义</th><th>业务解释</th><th>scanned</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>STANDARD</code></td><td>标准件 / 文本型 PDF</td><td>没有整页或近整页图片 / 矢量图主体；空白页也按标准件处理。</td><td><span class="el-tag el-tag--info">false</span></td></tr>
-          <tr><td><code>SCANNED</code></td><td>扫描件 / 纯图像 PDF</td><td>非空白页面主体均为整页或近整页图片 / 矢量图，且没有可提取文字。</td><td><span class="el-tag el-tag--danger">true</span></td></tr>
-          <tr><td><code>MIXED_SCANNED</code></td><td>混合扫描件</td><td>存在扫描页，同时 PDF 中存在可提取文字。</td><td><span class="el-tag el-tag--warning">true</span></td></tr>
-          <tr><td><code>EMPTY</code></td><td>空白 PDF</td><td>保留兼容字段。当前三分类检测不主动返回该类型。</td><td><span class="el-tag el-tag--info">false</span></td></tr>
-          <tr><td><code>UNKNOWN</code></td><td>未知类型</td><td>通常用于解析失败、参数错误、下载失败等异常结果。</td><td><span class="el-tag el-tag--info">false</span></td></tr>
-        </tbody>
-      </table>
-
-      <h3>PageType：页面类型</h3>
-      <table class="el-table">
-        <thead>
-          <tr><th>枚举值</th><th>中文含义</th><th>当前项目中的状态</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>TEXT_PAGE</code></td><td>文本页</td><td>保留给 Java 侧或未来扩展。当前严格公开 API 模式不返回单页明细。</td></tr>
-          <tr><td><code>SCANNED_PAGE</code></td><td>扫描页</td><td>保留给 Java 侧或未来扩展。当前只汇总 <code>scannedPages</code> 数量。</td></tr>
-          <tr><td><code>UNKNOWN_PAGE</code></td><td>未知页面</td><td>保留兼容，当前结果体不输出逐页页面类型。</td></tr>
-        </tbody>
-      </table>
-
-      <h3>SourceType：输入来源</h3>
-      <table class="el-table">
-        <thead>
-          <tr><th>枚举值</th><th>中文含义</th><th>说明</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>FILE</code></td><td>本地文件</td><td>输入是 Windows 本地 PDF 路径。</td></tr>
-          <tr><td><code>URL</code></td><td>PDF 直链</td><td>输入是 <code>http://</code> 或 <code>https://</code> 开头，并且路径后缀为 <code>.pdf</code> 的 URL。</td></tr>
-          <tr><td><code>UNKNOWN</code></td><td>未知来源</td><td>参数错误或无法识别输入类型时使用。</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section id="errors" class="section">
-      <h2>ErrorCode：错误码说明</h2>
-      <table class="el-table">
-        <thead>
-          <tr><th>错误码</th><th>中文含义</th><th>常见原因</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>INVALID_ARGUMENT</code></td><td>参数错误</td><td>没有传入参数，或者传入内容既不是 PDF 文件路径，也不是 PDF 直链 URL。</td></tr>
-          <tr><td><code>PARTIAL_FAILURE</code></td><td>部分失败</td><td>一次传入多个 PDF，其中至少一个处理失败。</td></tr>
-          <tr><td><code>PDF_NOT_FOUND</code></td><td>文件不存在</td><td>本地路径不存在。</td></tr>
-          <tr><td><code>PDF_NOT_FILE</code></td><td>不是文件</td><td>传入的是目录，或者不是普通文件。</td></tr>
-          <tr><td><code>PDF_DOWNLOAD_ERROR</code></td><td>下载失败</td><td>URL 网络不可达、超时、状态码异常或下载过程中断。</td></tr>
-          <tr><td><code>PDF_URL_NOT_PDF</code></td><td>URL 不是 PDF</td><td>URL 后缀不是 <code>.pdf</code>，或者响应内容不是 PDF 文件头。</td></tr>
-          <tr><td><code>PDF_PARSE_ERROR</code></td><td>PDF 解析失败</td><td>PDF 文件损坏、加密不可读，或者底层库无法解析。</td></tr>
-          <tr><td><code>PDF_EMPTY</code></td><td>PDF 没有页面</td><td>保留错误码，表示 PDF 没有可检测页面。</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section id="steps" class="section">
-      <div class="section-header">
-        <div>
-          <h2>截图步骤</h2>
-          <p>下面是用户实际操作时可以照着执行的步骤。截图来自本机直接运行 <code>scanspy.exe</code> 的结果。</p>
-        </div>
-        <span class="el-tag el-tag--primary">操作示例</span>
-      </div>
-      <div class="steps">
-        <article class="step">
-          <div class="step-title"><span class="step-index">1</span>拿到交付文件</div>
-          <p>如果老板或实施人员给用户的是 zip，先解压。真正运行的是 <code>scanspy.exe</code>。</p>
-          <img class="screenshot" src="images/01-release-files.png" alt="拿到交付文件">
-        </article>
-        <article class="step">
-          <div class="step-title"><span class="step-index">2</span>打开命令行</div>
-          <p>推荐使用 PowerShell。用户不需要安装 Python、uv 或项目依赖。</p>
-          <img class="screenshot" src="images/02-open-powershell.png" alt="打开命令行">
-        </article>
-        <article class="step">
-          <div class="step-title"><span class="step-index">3</span>检测本地标准 PDF</div>
-          <p>标准件返回 <code>STANDARD</code>，<code>scanned=false</code>。</p>
-          <img class="screenshot" src="images/03-standard.png" alt="检测本地标准 PDF">
-        </article>
-        <article class="step">
-          <div class="step-title"><span class="step-index">4</span>检测本地扫描 PDF</div>
-          <p>扫描件返回 <code>SCANNED</code>，<code>scanned=true</code>。</p>
-          <img class="screenshot" src="images/04-scanned.png" alt="检测本地扫描 PDF">
-        </article>
-        <article class="step">
-          <div class="step-title"><span class="step-index">5</span>检测混合 PDF</div>
-          <p>混合件返回 <code>MIXED_SCANNED</code>，<code>scanned=true</code>。</p>
-          <img class="screenshot" src="images/05-mixed.png" alt="检测混合 PDF">
-        </article>
-        <article class="step">
-          <div class="step-title"><span class="step-index">6</span>一次检测多个 PDF</div>
-          <p>命令后面连续追加多个 PDF 路径即可，每个 PDF 在 <code>data</code> 数组中各有一个返回结果。</p>
-          <img class="screenshot" src="images/06-multiple.png" alt="一次检测多个 PDF">
-        </article>
-        <article class="step">
-          <div class="step-title"><span class="step-index">7</span>检测 PDF 直链 URL</div>
-          <p>URL 必须是 HTTP/HTTPS，并且路径以 <code>.pdf</code> 结尾。</p>
-          <img class="screenshot" src="images/07-url.png" alt="检测 PDF 直链 URL">
-        </article>
-        <article class="step">
-          <div class="step-title"><span class="step-index">8</span>常见错误：传入非 PDF</div>
-          <p>错误时仍然保持相同 JSON 结构，便于 Java 反序列化。</p>
-          <img class="screenshot" src="images/08-invalid.png" alt="常见错误：传入非 PDF">
-        </article>
-        <article class="step">
-          <div class="step-title"><span class="step-index">9</span>JSON 字段说明</div>
-          <p>业务通常重点看 <code>scanned</code>、<code>type</code>、<code>source</code>、<code>fileName</code>、<code>errorCode</code>。</p>
-          <img class="screenshot" src="images/09-json-fields.png" alt="JSON 字段说明">
-        </article>
-      </div>
-    </section>
-
-    <p class="footer">文档位置：C:\Users\zhongerbing\Desktop\scanspy-用户使用文档\scanspy-详细使用文档.html</p>
-  </main>
-</div>
-</body>
-</html>
+&amp; "C:\tools\scanspy\scanspy.exe" "C:\input\a.pdf" "C:\input\b.pdf"</pre>
+<p class="body">如果当前目录就是 EXE 所在目录，可直接使用：</p>
+<pre>.\scanspy.exe "C:\input\file.pdf"</pre>
+<h2 class="h2">CMD</h2>
+<p class="body">CMD 中不使用 PowerShell 的 &amp; 调用运算符：</p>
+<pre>"C:\tools\scanspy\scanspy.exe" "C:\input\file.pdf"</pre>
+<h2 class="h2">输入限制</h2>
+<p class="body">1. 本地输入必须是 .pdf 文件路径，不接受 DOCX 或目录。文件名后缀不区分大小写。</p>
+<p class="body">2. 网络输入必须是 http:// 或 https:// 地址，URL 的路径部分以 .pdf 结尾，返回内容应为可读取的 PDF。网页预览地址不能直接使用。</p>
+<p class="body">3. 多个输入依次处理；data 数组与输入顺序对应，一个文件处理失败不会丢弃其他文件的结果。</p>
+<h2 class="h2">网络文件与临时目录</h2>
+<p class="body">PDF 直链会先下载到系统 %TMP% / %TEMP% 下的 scanspy-* 临时目录，再进行检测。正常结束或解析报错后会清理该临时目录。网络请求使用 20 秒超时设置；这不是整份 PDF 检测的总耗时上限。</p>
+<h2 class="h2">输出和进程退出码</h2>
+<p class="body">标准输出打印一行 UTF-8 编码的 JSON。所有输入处理成功时，进程退出码为 0；参数错误或任意输入处理失败时为 1。纯扫描件也可以处理成功并返回退出码 0，业务系统仍需读取 scanned。</p>
+</section><section>
+<h1 class="h1">JSON 字段说明</h1>
+<p class="small">成功和失败结果的 data 均为数组。每个结果项的字段顺序和结构一致，方便按 R&lt;List&lt;ScanDetectResult&gt;&gt; 读取。以下 code 为 JSON 内的状态字段。</p>
+<table><thead><tr><th>字段</th><th>位置</th><th>说明</th></tr></thead><tbody><tr><td>code</td><td>外层及结果项</td><td>200 表示处理成功，400 表示处理失败。</td></tr><tr><td>success</td><td>外层及结果项</td><td>处理是否成功。批量调用需同时检查每个结果项。</td></tr><tr><td>data</td><td>外层</td><td>按输入顺序排列的结果数组。</td></tr><tr><td>source</td><td>结果项</td><td>原始输入路径或 URL。</td></tr><tr><td>fileName</td><td>结果项</td><td>文件名。</td></tr><tr><td>fileSize</td><td>结果项</td><td>文件大小，单位为字节。</td></tr><tr><td>suffix</td><td>结果项</td><td>文件后缀；成功的 PDF 输入为 PDF。</td></tr><tr><td>scanned</td><td>结果项</td><td>仅 SCANNED 为 true；STANDARD 和 MIXED_SCANNED 为 false。</td></tr><tr><td>type</td><td>结果项</td><td>文档类型；保留混合扫描件的细分信息。</td></tr><tr><td>confidence</td><td>结果项</td><td>固定为 0.0。当前结构规则不生成统计置信度。</td></tr><tr><td>pageCount</td><td>结果项</td><td>PDF 实际总页数。</td></tr><tr><td>scannedPages</td><td>结果项</td><td>当前结构规则识别为扫描页的数量。</td></tr><tr><td>textPages</td><td>结果项</td><td>存在可提取文字的页数，包含页眉页脚或页码文字。</td></tr><tr><td>sourceType</td><td>结果项</td><td>FILE、URL 或 UNKNOWN。</td></tr><tr><td>msg</td><td>外层</td><td>中文结果说明。失败详情读取此字段。</td></tr><tr><td>errorCode</td><td>外层</td><td>错误码；成功时为空字符串。</td></tr></tbody></table>
+<p class="small">同一页可以同时计入 scannedPages 和 textPages，因此两项之和可能大于 pageCount。处理失败时页数通常为 0，不能作为成功检测的统计结果。</p>
+</section><section>
+<h1 class="h1">返回示例与分类解释</h1>
+<p class="small">以下为两页混合 PDF 的完整返回格式示例。示例文件名、大小及页数仅用于说明字段，实际输出以输入文件为准。</p>
+<pre>{
+  "code": 200,
+  "success": true,
+  "data": [
+    {
+      "code": 200,
+      "success": true,
+      "source": "C:\\input\\mixed.pdf",
+      "fileName": "mixed.pdf",
+      "fileSize": 12345,
+      "suffix": "PDF",
+      "scanned": false,
+      "type": "MIXED_SCANNED",
+      "confidence": 0.0,
+      "pageCount": 2,
+      "scannedPages": 1,
+      "textPages": 1,
+      "sourceType": "FILE"
+    }
+  ],
+  "msg": "操作成功",
+  "errorCode": ""
+}</pre>
+<h2 class="h2">类型如何理解</h2>
+<p class="body">STANDARD 表示当前规则未识别出扫描页，不保证文档中完全没有图片。空白页不影响文档类型，完全空白的 PDF 按 STANDARD 处理。</p>
+<p class="body">MIXED_SCANNED 表示存在扫描页且文档中存在可提取文字。文字页与扫描页混排、扫描页带 OCR 文字层，以及仅有可提取页眉页脚文字等情况，都可能归入混合扫描件；新版统一返回 scanned=false。</p>
+<p class="body">SCANNED 表示识别到扫描页且没有可提取文字，新版继续返回 scanned=true。EMPTY 为兼容保留类型，当前规则不主动返回；UNKNOWN 通常表示处理失败。</p>
+</section><section>
+<h1 class="h1">错误处理</h1>
+<p class="body">请先检查处理状态，再应用 scanned 业务规则。失败结果也使用统一字段结构，type=UNKNOWN、scanned=false；这表示未完成有效判断，不能当作普通 PDF 放行。</p>
+<table><thead><tr><th>errorCode</th><th>说明与处理建议</th></tr></thead><tbody><tr><td>INVALID_ARGUMENT</td><td>未传参数、后缀不正确、URL 不符合要求等。核对命令与输入。</td></tr><tr><td>PARTIAL_FAILURE</td><td>批量输入中至少一个文件失败。逐项检查 data 中的 code 和 success。</td></tr><tr><td>PDF_NOT_FOUND</td><td>本地文件不存在。检查路径和文件名。</td></tr><tr><td>PDF_NOT_FILE</td><td>路径不是普通文件，例如传入了目录。</td></tr><tr><td>PDF_DOWNLOAD_ERROR</td><td>网络请求失败、超时或返回非成功状态。检查网络和 PDF 直链。</td></tr><tr><td>PDF_URL_NOT_PDF</td><td>URL 响应内容不是 PDF；URL 路径后缀错误通常属于 INVALID_ARGUMENT。</td></tr><tr><td>PDF_PARSE_ERROR</td><td>PDF 无法解析。检查文件是否损坏或不可读取。</td></tr><tr><td>PDF_EMPTY</td><td>兼容保留错误码；当前处理流程不主动抛出此错误。</td></tr></tbody></table>
+<h2 class="h2">批量调用</h2>
+<p class="body">部分失败时，外层 code=400、success=false、errorCode=PARTIAL_FAILURE，但 data 仍保留所有输入的结果。成功文件的结果项 code=200；失败文件的结果项 code=400。失败详情位于外层 msg 和 errorCode。</p>
+<h2 class="h2">接入顺序</h2>
+<p class="body">1. 确认程序正常结束并且输出可以解析为 JSON。</p>
+<p class="body">2. 读取外层及各结果项的 code、success；对处理失败的文件按错误流程处理。</p>
+<p class="body">3. 对处理成功的结果读取 scanned。true 按纯扫描件处理；false 按本次业务约定处理，并保留 type 供详情展示。</p>
+</section><section>
+<h1 class="h1">替换与复核</h1>
+<h2 class="h2">替换旧版本</h2>
+<p class="body">1. 确认业务系统实际调用的 scanspy.exe 完整路径，将本次交付的新 EXE 替换到该位置。保留现有命令行参数和 JSON 读取方式。</p>
+<p class="body">2. 若系统提示文件被占用，等待正在运行的检测进程结束后再替换。</p>
+<p class="body">3. 将本次 README 和 PDF 使用文档一并替换，避免继续参照旧版本中混合扫描件返回 true 的说明或旧截图。</p>
+<h2 class="h2">用三类文件验证返回值</h2>
+<table><thead><tr><th>测试文件</th><th>预期 type</th><th>scanned</th></tr></thead><tbody><tr><td>普通文字 PDF</td><td>STANDARD</td><td>false</td></tr><tr><td>文字与扫描页混合的 PDF</td><td>MIXED_SCANNED</td><td>false</td></tr><tr><td>无文字层的纯扫描 PDF</td><td>SCANNED</td><td>true</td></tr></tbody></table>
+<p class="body">在 PowerShell 中可一次传入三份文件：</p>
+<pre>.\scanspy.exe "C:\input\standard.pdf" "C:\input\mixed.pdf" "C:\input\scanned.pdf"</pre>
+<p class="body">如果已知混合扫描件仍返回 type=MIXED_SCANNED、scanned=true，请优先核对实际执行的 EXE 路径，确认旧版本已经替换。</p>
+<h2 class="h2">统计和业务边界</h2>
+<p class="body">scannedPages 是结构规则的命中数，不等于人工确认的扫描附件数量。textPages 统计任何可提取文字，不保证正文都有文字层。scanned=false 也不能直接说明文档无需 OCR。</p>
+<p class="body">本工具不判断营业执照、资质证书、合同等附件是否满足投标要求；附件内容的审核由业务系统承担。当前接口不返回逐页页码列表。</p>
+<h2 class="h2">本次更新对应关系</h2>
+<p class="body">混合扫描件的业务布尔值由 true 调整为 false；文档细分类型、实际总页数和页级计数继续保留。本版说明已更新页数统计口径，并移除了旧 OCR 接口映射和旧输出截图。</p></section></html>

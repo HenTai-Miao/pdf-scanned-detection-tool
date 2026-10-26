@@ -34,7 +34,10 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 }
 
 Set-Location -LiteralPath $ProjectRoot
-uv sync --dev
+uv sync --frozen --dev
+if ($LASTEXITCODE -ne 0) {
+    throw "Dependency synchronization failed."
+}
 
 Remove-ProjectPath -Path $DistDir
 Remove-ProjectPath -Path $BuildDir
@@ -43,11 +46,12 @@ if (Test-Path -LiteralPath $ZipPath) {
     Remove-Item -LiteralPath $ZipPath -Force
 }
 
-uv run pyinstaller `
+uv run --frozen pyinstaller `
     --noconfirm `
     --clean `
     --onefile `
     --console `
+    --python-option "X utf8" `
     --name scanspy `
     --noupx `
     --paths $SourceDir `
@@ -66,8 +70,11 @@ if (-not (Test-Path -LiteralPath $BuiltExe)) {
 New-Item -ItemType Directory -Path $ReleaseDir -Force | Out-Null
 Copy-Item -LiteralPath $BuiltExe -Destination $ReleaseExe -Force
 
-$ReadmeTextBase64 = "c2NhbnNweSBXaW5kb3dzIHg2NCDkvb/nlKjor7TmmI4KCui/kOihjOaWueW8j++8mgogIEM6XHBhdGhcdG9cc2NhbnNweS5leGUgIkM6XHBhdGhcdG9cZmlsZS5wZGYiCiAgQzpccGF0aFx0b1xzY2Fuc3B5LmV4ZSAiaHR0cHM6Ly9leGFtcGxlLmNvbS9maWxlLnBkZiIKICBDOlxwYXRoXHRvXHNjYW5zcHkuZXhlICJDOlxwYXRoXHRvXGEucGRmIiAiQzpccGF0aFx0b1xiLnBkZiIKCuivtOaYju+8mgogIC0g5LuF5pSv5oyB5pys5ZywIC5wZGYg5paH5Lu25ZKM5LulIC5wZGYg57uT5bC+55qEIEhUVFAvSFRUUFMgUERGIOebtOmTvuOAggogIC0gSFRUUC9IVFRQUyDmlofku7bkvJrkuIvovb3liLAgJVRNUCUgLyAlVEVNUCUg5LiL55qEIHNjYW5zcHktKiDkuLTml7bnm67lvZXvvIzmo4DmtYvlrozmiJDlkI7oh6rliqjliKDpmaTjgIIKICAtIOi+k+WHuuS4uuS4gOihjCBKU09O77yM5a2X5q6157uT5p6E5LiO6aG555uuIFJFQURNRSDkuK3nmoQgUjxMaXN0PFNjYW5EZXRlY3RSZXN1bHQ+PiDkv53mjIHkuIDoh7TjgIIKICAtIOajgOa1i+mAu+i+keS4peagvOS9v+eUqCBvY3ItZGV0ZWN0aW9uLmRldGVjdF9vY3IoKSDlhazlvIAgQVBJ44CCCgrluLjop4Hov5Tlm57vvJoKICAtIFNUQU5EQVJE77ya5LiN6ZyA6KaBIE9DUgogIC0gU0NBTk5FRO+8muWFqOmDqOmhtemcgOimgSBPQ1IKICAtIE1JWEVEX1NDQU5ORUTvvJrpg6jliIbpobXpnIDopoEgT0NSCg=="
-$ReadmeText = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($ReadmeTextBase64))
+$ReadmeSource = Join-Path (Join-Path $ProjectRoot "packaging") $ReadmeFileName
+if (-not (Test-Path -LiteralPath $ReadmeSource)) {
+    throw "Release README source was not found: $ReadmeSource"
+}
+$ReadmeText = [System.IO.File]::ReadAllText($ReadmeSource, [System.Text.Encoding]::UTF8)
 [System.IO.File]::WriteAllText($ReleaseReadme, $ReadmeText, [System.Text.Encoding]::UTF8)
 
 if (-not $SkipArchive) {

@@ -215,14 +215,14 @@ def test_searchable_image_pdf_with_full_page_image_is_mixed(tmp_path: Path) -> N
 
     assert exit_code == 0
     result = payload["data"][0]
-    assert result["scanned"] is True
+    assert result["scanned"] is False
     assert result["type"] == "MIXED_SCANNED"
     assert result["pageCount"] == 1
     assert result["scannedPages"] == 1
     assert result["textPages"] == 1
 
 
-def test_mixed_pdf_returns_mixed_scanned(tmp_path: Path) -> None:
+def test_mixed_pdf_returns_scanned_false_with_mixed_type(tmp_path: Path) -> None:
     pdf = tmp_path / "mixed.pdf"
     write_mixed_pdf(pdf)
 
@@ -230,7 +230,7 @@ def test_mixed_pdf_returns_mixed_scanned(tmp_path: Path) -> None:
 
     assert exit_code == 0
     result = payload["data"][0]
-    assert result["scanned"] is True
+    assert result["scanned"] is False
     assert result["type"] == "MIXED_SCANNED"
     assert result["pageCount"] == 2
     assert result["scannedPages"] == 1
@@ -391,7 +391,7 @@ def test_text_page_plus_ocr_scanned_page_returns_mixed(tmp_path: Path) -> None:
 
     assert exit_code == 0
     result = payload["data"][0]
-    assert result["scanned"] is True
+    assert result["scanned"] is False
     assert result["type"] == DocumentType.MIXED_SCANNED.value
     assert result["pageCount"] == 2
     assert result["scannedPages"] == 1
@@ -427,7 +427,7 @@ def test_text_page_plus_full_page_vector_page_returns_mixed(tmp_path: Path) -> N
 
     assert exit_code == 0
     result = payload["data"][0]
-    assert result["scanned"] is True
+    assert result["scanned"] is False
     assert result["type"] == DocumentType.MIXED_SCANNED.value
     assert result["pageCount"] == 2
     assert result["scannedPages"] == 1
@@ -481,7 +481,7 @@ def test_full_page_vector_with_text_returns_mixed(tmp_path: Path) -> None:
 
     assert exit_code == 0
     result = payload["data"][0]
-    assert result["scanned"] is True
+    assert result["scanned"] is False
     assert result["type"] == DocumentType.MIXED_SCANNED.value
     assert result["pageCount"] == 1
     assert result["scannedPages"] == 1
